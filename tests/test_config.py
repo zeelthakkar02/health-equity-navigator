@@ -26,6 +26,33 @@ def test_cors_origins_accept_comma_separated_string() -> None:
     assert settings.cors_allow_origins == ["http://a.test", "http://b.test"]
 
 
+def test_cors_origins_parse_from_an_environment_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The path that actually matters in production, and the one that broke.
+
+    Passing the value as a constructor argument skips pydantic-settings'
+    environment source entirely, so it cannot catch a decoding failure there.
+    """
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://a.test,https://b.test")
+
+    assert _settings().cors_allow_origins == ["https://a.test", "https://b.test"]
+
+
+def test_a_single_cors_origin_parses_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", "https://portal.example")
+
+    assert _settings().cors_allow_origins == ["https://portal.example"]
+
+
+def test_json_list_cors_origins_still_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CORS_ALLOW_ORIGINS", '["https://a.test", "https://b.test"]')
+
+    assert _settings().cors_allow_origins == ["https://a.test", "https://b.test"]
+
+
 def test_log_level_is_normalised() -> None:
     assert _settings(log_level="debug").log_level == "DEBUG"
 

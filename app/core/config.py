@@ -7,13 +7,14 @@ no API keys or service-account paths in this file.
 
 from __future__ import annotations
 
+import json
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Environment(StrEnum):
@@ -76,7 +77,12 @@ class Settings(BaseSettings):
 
     # Origins allowed to call the API. The consuming website's origin is
     # added here when the two systems are wired together.
-    cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    # NoDecode is required: without it pydantic-settings JSON-decodes a list
+    # field read from the environment *before* any validator runs, so a plain
+    # comma-separated CORS_ALLOW_ORIGINS raises a JSONDecodeError at startup.
+    cors_allow_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000"]
+    )
 
     # --- LLM ---
     llm_provider: LLMProvider = LLMProvider.STUB
@@ -162,10 +168,24 @@ class Settings(BaseSettings):
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: Any) -> Any:
-        """Accept either a JSON list or a plain comma-separated string."""
-        if isinstance(value, str) and not value.strip().startswith("["):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+        """Accept a JSON list or a plain comma-separated string.
+
+        This field carries NoDecode, so nothing has decoded it before we get
+        here — both shapes are handled in one place instead of half by
+        pydantic-settings and half by this validator.
+        """
+        if not isinstance(value, str):
+            return value
+
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                # Fall through: a malformed JSON list is still worth splitting
+                # rather than failing with a decoder error the operator cannot act on.
+                pass
+        return [origin.strip() for origin in text.split(",") if origin.strip()]
 
     @field_validator("gemini_thinking_level", mode="before")
     @classmethod
