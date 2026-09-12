@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------------------
+# Secrets & credentials — NEVER commit these.
+# Vertex AI auth in this project uses Application Default Credentials (ADC).
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+client_secret*.json
+service-account*.json
+*-service-account.json
+*sa-key*.json
+gha-creds-*.json
+application_default_credentials.json
+.gcloud/
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Derived artifacts
+.cache/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

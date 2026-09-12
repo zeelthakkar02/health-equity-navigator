@@ -1,0 +1,274 @@
+{
+  "_meta": {
+    "warning": "SYNTHETIC EVALUATION DATA — invented queries, not real people.",
+    "description": "Hand-written needs used to measure retrieval quality against app/data/sample_resources.json. No real user text and no patient data. Expected categories describe what a reasonable person would consider a good answer; expected_resource_ids are named only where one specific organization is clearly the right answer.",
+    "contains_patient_data": false,
+    "query_count": 32,
+    "off_topic_count": 5
+  },
+  "queries": [
+    {
+      "query_id": "transport-01",
+      "query": "I need a ride to my dialysis appointment.",
+      "expected_categories": [
+        "transportation"
+      ],
+      "expected_resource_ids": [
+        "syn-transport-001"
+      ],
+      "note": "The explicit need is a ride; 'appointment' is incidental."
+    },
+    {
+      "query_id": "transport-02",
+      "query": "How do I get to the clinic if I can't drive?",
+      "expected_categories": [
+        "transportation"
+      ]
+    },
+    {
+      "query_id": "transport-03",
+      "query": "I need bus passes to get to my specialist in Fresno.",
+      "location": "Fresno",
+      "expected_categories": [
+        "transportation"
+      ],
+      "expected_resource_ids": [
+        "syn-transport-002"
+      ]
+    },
+    {
+      "query_id": "access-01",
+      "query": "My mother needs wheelchair-accessible support.",
+      "expected_categories": [
+        "accessibility_support"
+      ],
+      "note": "'My mother' is context, not a caregiver request."
+    },
+    {
+      "query_id": "access-02",
+      "query": "I need a wheelchair ramp installed at my house.",
+      "expected_categories": [
+        "accessibility_support",
+        "housing_support"
+      ],
+      "expected_resource_ids": [
+        "syn-housing-003"
+      ]
+    },
+    {
+      "query_id": "access-03",
+      "query": "Where can I borrow a walker or a shower chair?",
+      "expected_categories": [
+        "accessibility_support"
+      ],
+      "expected_resource_ids": [
+        "syn-access-001"
+      ]
+    },
+    {
+      "query_id": "food-01",
+      "query": "I need food assistance near Oakland.",
+      "location": "Oakland",
+      "expected_categories": [
+        "food_assistance"
+      ],
+      "expected_resource_ids": [
+        "syn-food-001"
+      ]
+    },
+    {
+      "query_id": "food-02",
+      "query": "My family is running out of groceries and we have no money.",
+      "expected_categories": [
+        "food_assistance"
+      ]
+    },
+    {
+      "query_id": "food-03",
+      "query": "How do I apply for CalFresh food benefits?",
+      "expected_categories": [
+        "food_assistance"
+      ],
+      "expected_resource_ids": [
+        "syn-food-002"
+      ]
+    },
+    {
+      "query_id": "housing-01",
+      "query": "I got an eviction notice and I need help staying in my apartment.",
+      "expected_categories": [
+        "housing_support"
+      ],
+      "expected_resource_ids": [
+        "syn-housing-001"
+      ]
+    },
+    {
+      "query_id": "housing-02",
+      "query": "I need emergency shelter tonight.",
+      "expected_categories": [
+        "housing_support"
+      ],
+      "expected_resource_ids": [
+        "syn-housing-002"
+      ]
+    },
+    {
+      "query_id": "housing-03",
+      "query": "I can't afford my rent this month.",
+      "expected_categories": [
+        "housing_support"
+      ]
+    },
+    {
+      "query_id": "caregiver-01",
+      "query": "I'm caring for my husband with dementia and I need a break.",
+      "expected_categories": [
+        "caregiver_support"
+      ]
+    },
+    {
+      "query_id": "caregiver-02",
+      "query": "Is there a support group for family caregivers?",
+      "expected_categories": [
+        "caregiver_support"
+      ],
+      "expected_resource_ids": [
+        "syn-caregiver-001"
+      ]
+    },
+    {
+      "query_id": "caregiver-03",
+      "query": "I take care of my elderly father and need someone to sit with him.",
+      "expected_categories": [
+        "caregiver_support"
+      ]
+    },
+    {
+      "query_id": "insurance-01",
+      "query": "I got a huge hospital bill that I cannot pay.",
+      "expected_categories": [
+        "insurance_navigation"
+      ],
+      "expected_resource_ids": [
+        "syn-insurance-002"
+      ]
+    },
+    {
+      "query_id": "insurance-02",
+      "query": "I need help signing up for Medi-Cal.",
+      "expected_categories": [
+        "insurance_navigation"
+      ],
+      "expected_resource_ids": [
+        "syn-insurance-001"
+      ]
+    },
+    {
+      "query_id": "insurance-03",
+      "query": "My insurance denied my claim and I want to appeal it.",
+      "expected_categories": [
+        "insurance_navigation"
+      ]
+    },
+    {
+      "query_id": "language-01",
+      "query": "I need an interpreter for my doctor visit.",
+      "expected_categories": [
+        "language_assistance"
+      ],
+      "expected_resource_ids": [
+        "syn-language-001"
+      ]
+    },
+    {
+      "query_id": "language-02",
+      "query": "I am Deaf and need an ASL interpreter at my appointment.",
+      "expected_categories": [
+        "language_assistance",
+        "accessibility_support"
+      ],
+      "expected_resource_ids": [
+        "syn-language-002"
+      ]
+    },
+    {
+      "query_id": "language-03",
+      "query": "My father does not speak English and needs help understanding his care.",
+      "expected_categories": [
+        "language_assistance"
+      ]
+    },
+    {
+      "query_id": "mental-01",
+      "query": "I have been feeling depressed and need someone to talk to.",
+      "expected_categories": [
+        "mental_health"
+      ]
+    },
+    {
+      "query_id": "mental-02",
+      "query": "I need counseling but I don't have insurance.",
+      "expected_categories": [
+        "mental_health",
+        "community_clinic"
+      ]
+    },
+    {
+      "query_id": "clinic-01",
+      "query": "I need to see a doctor but I don't have insurance.",
+      "expected_categories": [
+        "community_clinic"
+      ]
+    },
+    {
+      "query_id": "clinic-02",
+      "query": "Where can I get a checkup without immigration papers?",
+      "expected_categories": [
+        "community_clinic"
+      ]
+    },
+    {
+      "query_id": "appointment-01",
+      "query": "I keep missing my appointments because I have no childcare.",
+      "expected_categories": [
+        "appointment_support"
+      ],
+      "expected_resource_ids": [
+        "syn-appointment-001"
+      ]
+    },
+    {
+      "query_id": "community-01",
+      "query": "Where can I get help with my utility bill?",
+      "expected_categories": [
+        "community_services"
+      ]
+    },
+    {
+      "query_id": "offtopic-01",
+      "query": "What is the weather forecast for tomorrow?",
+      "off_topic": true
+    },
+    {
+      "query_id": "offtopic-02",
+      "query": "How do I fix a null pointer bug in my Python code?",
+      "off_topic": true
+    },
+    {
+      "query_id": "offtopic-03",
+      "query": "Who won the football game last night?",
+      "off_topic": true
+    },
+    {
+      "query_id": "offtopic-04",
+      "query": "Recommend a good Italian restaurant for my anniversary dinner.",
+      "off_topic": true
+    },
+    {
+      "query_id": "offtopic-05",
+      "query": "quantum chromodynamics research grant deadlines",
+      "off_topic": true
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "health-equity-navigator"
+version = "0.1.0"
+description = "RAG-based Health Equity Navigator API (Phase 1: service skeleton + LLM abstraction)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "google-genai>=1.0",
+    "numpy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "N",    # pep8-naming
+    "ASYNC",# flake8-async
+    "S",    # flake8-bandit
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "S104",  # binding 0.0.0.0 is intentional inside a container
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Asserts are the point of a test; subprocess use is deliberate; and blocking
+# file IO inside an async test is setup, not a latency bug.
+"tests/*" = ["S101", "S603", "ASYNC230", "ASYNC240"]
+# One-shot CLI tools: blocking file IO in their async main is setup, not latency.
+"scripts/*" = ["ASYNC230", "ASYNC240"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+asyncio_mode = "auto"
+filterwarnings = ["error::DeprecationWarning:app.*"]
