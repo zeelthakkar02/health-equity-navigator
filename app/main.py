@@ -11,8 +11,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.auth import build_token_verifier
 from app.api.middleware import (
     BodySizeLimitMiddleware,
+    FixedWindowLimiter,
     RateLimitMiddleware,
     RequestTimeoutMiddleware,
     SecurityHeadersMiddleware,
@@ -49,7 +51,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
-        application.state.settings = settings
         application.state.llm_service = build_llm_service(settings)
         application.state.retriever = None
         application.state.retrieval_stack = None
@@ -74,6 +75,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.llm_provider.value,
             settings.embedding_provider.value,
         )
+        logger.info(
+            "Authentication: %s",
+            "Identity Platform ID tokens required on the query endpoint"
+            if settings.auth_enabled
+            else "DISABLED — the query endpoint is public",
+        )
+        logger.info(
+            "Authentication: %s",
+            "Identity Platform ID tokens required on /api/v1/navigator/query"
+            if settings.auth_enabled
+            else "DISABLED — the query endpoint is public",
+        )
         try:
             yield
         finally:
@@ -95,6 +108,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     application.state.settings = settings
+    # Built here, before any request, so a misconfigured Identity Platform
+    # project surfaces at startup rather than as a 500 on the first call.
+    application.state.token_verifier = build_token_verifier(settings)
+    application.state.user_rate_limiter = FixedWindowLimiter(
+        settings.user_rate_limit_requests, settings.user_rate_limit_window_seconds
+    )
 
     # Starlette runs middleware in reverse registration order, so the request-id
     # middleware is added last and therefore runs first: everything below it,
@@ -104,7 +123,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=settings.cors_allow_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "Accept", REQUEST_ID_HEADER],
+        # Authorization must be allowed or the browser cannot send the token.
+        allow_headers=["Authorization", "Content-Type", "Accept", REQUEST_ID_HEADER],
     )
     application.add_middleware(SecurityHeadersMiddleware)
     application.add_middleware(

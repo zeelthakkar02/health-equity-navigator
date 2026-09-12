@@ -9,9 +9,11 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
+from tests.conftest import VALID_TOKEN, FakeTokenVerifier
 
 ENDPOINT = "/api/v1/navigator/query"
 PAYLOAD = {"query": "I need help finding food."}
+AUTH = {"Authorization": f"Bearer {VALID_TOKEN}"}
 
 
 @pytest.fixture
@@ -22,13 +24,22 @@ def hardened_settings(settings: Settings) -> Settings:
             "rate_limit_requests": 3,
             "rate_limit_window_seconds": 60.0,
             "max_request_bytes": 512,
+            # These tests exercise the address-keyed limiter; keep the per-user
+            # one from firing first and masking what is being measured.
+            "user_rate_limit_requests": 1000,
         }
     )
 
 
 @pytest.fixture
-def hardened_client(hardened_settings: Settings) -> Iterator[TestClient]:
-    with TestClient(create_app(hardened_settings)) as client:
+def hardened_client(
+    hardened_settings: Settings, verifier: FakeTokenVerifier
+) -> Iterator[TestClient]:
+    """Authenticated: these tests are about the middleware, not about auth."""
+    app = create_app(hardened_settings)
+    app.state.token_verifier = verifier
+    with TestClient(app) as client:
+        client.headers.update(AUTH)
         yield client
 
 
@@ -94,10 +105,22 @@ def test_health_is_exempt_from_the_rate_limit(hardened_client: TestClient) -> No
         assert hardened_client.get("/health").status_code == 200
 
 
-def test_the_rate_limiter_can_be_turned_off(settings: Settings) -> None:
-    relaxed = settings.model_copy(update={"rate_limit_enabled": False, "rate_limit_requests": 1})
+def test_the_rate_limiter_can_be_turned_off(
+    settings: Settings, verifier: FakeTokenVerifier
+) -> None:
+    relaxed = settings.model_copy(
+        update={
+            "rate_limit_enabled": False,
+            "rate_limit_requests": 1,
+            # The per-user limiter is a separate control; keep it out of the way.
+            "user_rate_limit_requests": 100,
+        }
+    )
+    app = create_app(relaxed)
+    app.state.token_verifier = verifier
 
-    with TestClient(create_app(relaxed)) as client:
+    with TestClient(app) as client:
+        client.headers.update(AUTH)
         for _ in range(5):
             assert client.post(ENDPOINT, json=PAYLOAD).status_code == 200
 

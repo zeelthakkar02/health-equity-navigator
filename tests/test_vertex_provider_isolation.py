@@ -36,7 +36,10 @@ def test_importing_the_app_does_not_import_the_google_sdk() -> None:
         check=True,
     )
 
-    assert result.stdout.strip() == "CLEAN", result.stderr
+    # The probe may emit startup log lines (e.g. the auth-disabled warning)
+    # before its verdict, so read the last line rather than the whole stream.
+    verdict = result.stdout.strip().splitlines()[-1]
+    assert verdict == "CLEAN", result.stdout + result.stderr
 
 
 def test_vertex_service_rejects_an_empty_project() -> None:

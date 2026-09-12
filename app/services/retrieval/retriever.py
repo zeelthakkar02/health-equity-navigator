@@ -122,10 +122,13 @@ class ResourceRetriever:
         results = self._rank(hits, location=location, stated_needs=stated_needs, as_of=as_of)[
             :limit
         ]
+        # The query text itself is never logged: it can describe someone's
+        # health, immigration status, or housing situation. Its length and the
+        # needs detected from it are enough to debug retrieval.
         logger.info(
-            "retrieval query=%r location=%r stated_needs=%s hits=%d returned=%d",
-            query[:80],
-            location,
+            "retrieval query_chars=%d has_location=%s stated_needs=%s hits=%d returned=%d",
+            len(query),
+            location is not None,
             sorted(category.value for category in stated_needs),
             len(hits),
             len(results),

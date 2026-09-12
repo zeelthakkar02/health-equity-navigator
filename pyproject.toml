@@ -17,6 +17,9 @@ dependencies = [
     "pydantic-settings>=2.4",
     "google-genai>=1.0",
     "numpy>=2.0",
+    # Identity Platform / Firebase ID token verification. Used for its cached,
+    # rotating public-key handling rather than a hand-rolled JWT check.
+    "firebase-admin>=6.5",
 ]
 
 [project.optional-dependencies]

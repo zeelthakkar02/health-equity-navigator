@@ -111,6 +111,48 @@ class RequestTimeoutMiddleware(BaseHTTPMiddleware):
             )
 
 
+class FixedWindowLimiter:
+    """Counts requests per key inside a sliding window, in process memory.
+
+    Shared by the IP-keyed middleware and the UID-keyed dependency so the two
+    cannot drift apart. Per process only: several Cloud Run instances each allow
+    the full quota, which is why this is a brake on one abusive caller rather
+    than a quota system.
+    """
+
+    def __init__(self, max_requests: int, window_seconds: float) -> None:
+        self._max_requests = max_requests
+        self._window_seconds = window_seconds
+        self._hits: dict[str, deque[float]] = {}
+
+    def check(self, key: str) -> int | None:
+        """Record a hit. Returns retry-after seconds when over the limit."""
+        now = time.monotonic()
+        window = self._hits.setdefault(key, deque())
+
+        while window and now - window[0] > self._window_seconds:
+            window.popleft()
+
+        if len(window) >= self._max_requests:
+            return max(1, int(self._window_seconds - (now - window[0])))
+
+        window.append(now)
+        self._prune(now)
+        return None
+
+    def _prune(self, now: float) -> None:
+        """Drop keys whose windows have fully expired, bounding memory."""
+        if len(self._hits) < 1024:
+            return
+        stale = [
+            key
+            for key, window in self._hits.items()
+            if not window or now - window[-1] > self._window_seconds
+        ]
+        for key in stale:
+            del self._hits[key]
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Fixed-window-per-client limiter, kept in memory.
 
@@ -128,26 +170,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         exempt_paths: frozenset[str] = frozenset({"/health"}),
     ) -> None:
         super().__init__(app)
-        self._max_requests = max_requests
-        self._window_seconds = window_seconds
+        self._limiter = FixedWindowLimiter(max_requests, window_seconds)
         self._trust_proxy_headers = trust_proxy_headers
         self._exempt_paths = exempt_paths
-        self._hits: dict[str, deque[float]] = {}
 
     async def dispatch(self, request: Request, call_next: CallNext):
         if request.url.path in self._exempt_paths:
             return await call_next(request)
 
-        client = self._client_key(request)
-        now = time.monotonic()
-        window = self._hits.setdefault(client, deque())
-
-        while window and now - window[0] > self._window_seconds:
-            window.popleft()
-
-        if len(window) >= self._max_requests:
-            retry_after = max(1, int(self._window_seconds - (now - window[0])))
-            logger.warning("rate limit reached for a client (%d requests)", len(window))
+        retry_after = self._limiter.check(self._client_key(request))
+        if retry_after is not None:
+            logger.warning("rate limit reached for a client address")
             response = _error(
                 429,
                 "rate_limited",
@@ -157,8 +190,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             response.headers["Retry-After"] = str(retry_after)
             return response
 
-        window.append(now)
-        self._prune(now)
         return await call_next(request)
 
     def _client_key(self, request: Request) -> str:
@@ -167,15 +198,3 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if forwarded:
                 return forwarded.split(",")[0].strip()
         return request.client.host if request.client else "unknown"
-
-    def _prune(self, now: float) -> None:
-        """Drop clients whose windows have fully expired, bounding memory."""
-        if len(self._hits) < 1024:
-            return
-        stale = [
-            key
-            for key, window in self._hits.items()
-            if not window or now - window[-1] > self._window_seconds
-        ]
-        for key in stale:
-            del self._hits[key]

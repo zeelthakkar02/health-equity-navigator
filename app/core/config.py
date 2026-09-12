@@ -129,6 +129,18 @@ class Settings(BaseSettings):
     resource_index_cache_enabled: bool = True
     resource_index_cache_path: Path = Path(".cache/resource_index.npz")
 
+    # --- Authentication ---
+    # Identity Platform / Firebase ID tokens are verified server-side.
+    #
+    # Default off so a fresh clone runs with zero configuration, which the whole
+    # repo depends on. That is only safe because ENVIRONMENT=prod refuses to
+    # start with auth disabled (see _reject_unauthenticated_production), so the
+    # insecure setting cannot survive a deployment.
+    auth_enabled: bool = False
+    # Audience the ID token must carry. Defaults to GOOGLE_CLOUD_PROJECT when
+    # unset, which is the usual case: Identity Platform lives in the same project.
+    identity_platform_project_id: str | None = None
+
     # --- Request hardening (public API surface) ---
     max_request_bytes: int = Field(default=16_384, gt=0, le=1_048_576)
     request_timeout_seconds: float = Field(default=60.0, gt=0)
@@ -138,6 +150,10 @@ class Settings(BaseSettings):
     # Trust a proxy's forwarded client IP. Only turn this on behind a proxy that
     # actually sets it, or callers can spoof their way around the rate limit.
     trust_proxy_headers: bool = False
+    # Second limiter, keyed by the verified UID. The IP limiter cannot tell two
+    # users behind one NAT apart, and cannot stop one account cycling addresses.
+    user_rate_limit_requests: int = Field(default=20, gt=0)
+    user_rate_limit_window_seconds: float = Field(default=60.0, gt=0)
 
     # --- Evaluation ---
     eval_navigator_path: Path = _PACKAGE_ROOT / "data" / "eval_navigator.json"
@@ -167,6 +183,35 @@ class Settings(BaseSettings):
         return value
 
     @model_validator(mode="after")
+    def _reject_wildcard_cors_in_production(self) -> Settings:
+        """A wildcard origin plus bearer-token auth is a credential-leak shape."""
+        if self.environment is Environment.PROD and "*" in self.cors_allow_origins:
+            raise ValueError(
+                "CORS_ALLOW_ORIGINS must name explicit origins in production, not '*'."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _reject_unauthenticated_production(self) -> Settings:
+        """Production may not serve the query endpoint without authentication."""
+        if self.environment is Environment.PROD and not self.auth_enabled:
+            raise ValueError(
+                "AUTH_ENABLED must be true when ENVIRONMENT=prod: the query "
+                "endpoint calls a paid model and answers personal questions."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_auth_requirements(self) -> Settings:
+        """Fail at startup rather than 401-ing every caller at runtime."""
+        if self.auth_enabled and not self.resolved_identity_project_id:
+            raise ValueError(
+                "AUTH_ENABLED requires IDENTITY_PLATFORM_PROJECT_ID (or "
+                "GOOGLE_CLOUD_PROJECT) so ID tokens can be checked against an audience."
+            )
+        return self
+
+    @model_validator(mode="after")
     def _check_vertex_requirements(self) -> Settings:
         """Fail fast at startup rather than on the first user request."""
         uses_vertex = (
@@ -189,6 +234,11 @@ class Settings(BaseSettings):
                     + ", ".join(missing)
                 )
         return self
+
+    @property
+    def resolved_identity_project_id(self) -> str | None:
+        """Identity Platform project, falling back to the Google Cloud project."""
+        return self.identity_platform_project_id or self.google_cloud_project
 
     @property
     def is_production(self) -> bool:
