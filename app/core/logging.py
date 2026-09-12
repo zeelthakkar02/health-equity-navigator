@@ -3,6 +3,10 @@
 Two formats: readable text for a terminal, and one JSON object per line for a
 log pipeline. JSON mode carries the per-request metrics dictionary as structured
 fields rather than embedding them in a message string.
+
+The JSON shape follows Google Cloud Logging's structured-log convention, so a
+container on Cloud Run gets correct log levels for free: it reads ``severity``
+(not ``level``), and Python's level names are already the values it expects.
 """
 
 from __future__ import annotations
@@ -39,7 +43,9 @@ class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
-            "level": record.levelname,
+            # Cloud Logging keys off "severity"; DEBUG/INFO/WARNING/ERROR/CRITICAL
+            # are exactly the values it recognises.
+            "severity": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
             "request_id": getattr(record, "request_id", "-"),

@@ -113,7 +113,9 @@ def test_json_logs_carry_extras_as_fields() -> None:
     assert payload["message"] == "hello"
     assert payload["request_id"] == "req-1"
     assert payload["metrics"] == {"total_ms": 42}
-    assert payload["level"] == "INFO"
+    # Cloud Logging reads "severity", so the key name is part of the contract.
+    assert payload["severity"] == "INFO"
+    assert "level" not in payload
 
 
 def test_a_record_without_a_request_id_still_formats() -> None:

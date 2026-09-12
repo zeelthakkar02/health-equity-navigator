@@ -1,0 +1,77 @@
+# Files excluded from the upload that `gcloud run deploy --source .` sends to
+# Cloud Build.
+#
+# This file is explicit rather than deferring to .gitignore. gcloud only falls
+# back to .gitignore when no .gcloudignore exists, and the upload boundary for a
+# build that runs in someone else's infrastructure deserves to be stated outright
+# rather than inherited.
+#
+# The image build only needs pyproject.toml, README.md, and app/ — see the
+# Dockerfile. tests/ and scripts/ are small and kept in the upload so the source
+# that built an image stays inspectable alongside it.
+
+# ---------------------------------------------------------------------------
+# Never upload: secrets and credentials.
+# Vertex AI auth on Cloud Run is the attached service account, so no credential
+# file should exist here at all — these patterns are a backstop, not a plan.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+client_secret*.json
+service-account*.json
+*-service-account.json
+*sa-key*.json
+gha-creds-*.json
+application_default_credentials.json
+.gcloud/
+secrets/
+
+# ---------------------------------------------------------------------------
+# Never upload: bulky or machine-local. .venv alone is ~144 MB and would be
+# rebuilt inside the image anyway.
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*.so
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Derived artifacts. The embedding index is rebuilt at container start; a cached
+# one from a developer's laptop must never ship inside an image.
+.cache/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Git metadata: large, and of no use to the build.
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Editors and OS noise
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Container build inputs that the build itself does not need
+.dockerignore
