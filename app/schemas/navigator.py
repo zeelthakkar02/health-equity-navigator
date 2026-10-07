@@ -43,7 +43,16 @@ class ResourceCitation(BaseModel):
     accessibility: list[str] = Field(default_factory=list)
     cost: str | None = None
     last_verified: date | None = Field(
-        default=None, description="When a human last confirmed these details."
+        default=None, description="When a human last confirmed these details, if known."
+    )
+    verification_status: str | None = Field(
+        default=None, description="'verified' or 'partially_verified'."
+    )
+    confirmation_notes: str | None = Field(
+        default=None,
+        description=(
+            "Details a human flagged as still needing confirmation. Show this to the member."
+        ),
     )
     snippet: str | None = Field(
         default=None, description="Short description the answer was grounded on."

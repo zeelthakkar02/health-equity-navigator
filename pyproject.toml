@@ -58,7 +58,10 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Asserts are the point of a test; subprocess use is deliberate; and blocking
 # file IO inside an async test is setup, not a latency bug.
-"tests/*" = ["S101", "S603", "ASYNC230", "ASYNC240"]
+# Asserts are the point of a test; subprocess use is deliberate; blocking file
+# IO inside an async test is setup; and the import fixtures reproduce the source
+# CSV's punctuation (en dashes in category names) rather than normalising it.
+"tests/*" = ["S101", "S603", "ASYNC230", "ASYNC240", "RUF001"]
 # One-shot CLI tools: blocking file IO in their async main is setup, not latency.
 "scripts/*" = ["ASYNC230", "ASYNC240"]
 

@@ -348,6 +348,8 @@ def to_citation(resource: Resource) -> ResourceCitation:
         accessibility=list(resource.accessibility),
         cost=resource.cost,
         last_verified=resource.last_verified,
+        verification_status=resource.verification_status.value,
+        confirmation_notes=resource.confirmation_notes,
         snippet=snippet,
     )
 

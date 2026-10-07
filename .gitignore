@@ -35,6 +35,12 @@ venv/
 env/
 ENV/
 
+# Real resource data. The committed dataset is synthetic; a real CENTS export
+# contains curated organization records that are not ours to publish, and
+# unverified rows that must not reach anyone from a public repo.
+app/data/private/
+*.csv
+
 # Derived artifacts
 .cache/
 

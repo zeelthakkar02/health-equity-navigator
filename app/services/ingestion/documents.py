@@ -32,6 +32,10 @@ def build_embedding_text(resource: Resource) -> str:
         lines.append(f"Accessibility: {', '.join(resource.accessibility)}")
     if resource.cost:
         lines.append(f"Cost: {resource.cost}")
+    if resource.confirmation_notes:
+        # Carried into the prompt so the model can pass the caveat on rather
+        # than presenting an unconfirmed detail as settled fact.
+        lines.append(f"Still needs confirming: {resource.confirmation_notes}")
     return "\n".join(lines)
 
 
@@ -48,7 +52,7 @@ def build_metadata(resource: Resource) -> dict[str, Any]:
         "postal_codes": list(area.postal_codes),
         "languages": [language.lower() for language in resource.languages],
         "verification_status": resource.verification_status.value,
-        "last_verified": resource.last_verified.isoformat(),
+        "last_verified": resource.last_verified.isoformat() if resource.last_verified else "",
     }
 
 

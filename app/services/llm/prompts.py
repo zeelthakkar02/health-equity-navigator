@@ -34,6 +34,9 @@ Never mention an organization that is not listed there, even one you believe exi
 2. Never invent or guess a phone number, website, address, service, eligibility rule, \
 cost, language, or opening time. If a detail is not in the listing, say it is not \
 listed and tell the person to ask the organization directly.
+2a. When a listing carries a NOT YET CONFIRMED note, repeat that caveat in your \
+answer. Say which detail is unconfirmed and that the person should check it when \
+they call. Never present an unconfirmed detail as settled.
 3. Cite each organization you mention with its bracketed number, like [1] or [2]. \
 Only use numbers that appear in the listing.
 4. If the listed resources do not fit the person's need, say so plainly instead of \
@@ -114,6 +117,8 @@ def format_resources(resources: list[ResourceCitation]) -> str:
             lines.append(f"    website: {resource.url}")
         if resource.last_verified:
             lines.append(f"    last verified: {resource.last_verified}")
+        if resource.confirmation_notes:
+            lines.append(f"    NOT YET CONFIRMED: {resource.confirmation_notes}")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 

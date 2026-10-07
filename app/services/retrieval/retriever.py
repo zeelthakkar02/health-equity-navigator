@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
-from app.domain.resource import Resource, ServiceCategory
+from app.domain.resource import Resource, ServiceCategory, VerificationStatus
 from app.services.embeddings.base import EmbeddingService
 from app.services.retrieval.need_lexicon import detect_categories
 from app.services.vectorstore.base import SearchFilters, SearchHit, VectorStore
@@ -40,6 +40,14 @@ _CITY_MATCH = 1.0
 _COUNTY_MATCH = 0.8
 _STATE_MATCH = 0.6
 _BOUNDLESS_MATCH = 0.5
+
+# Statuses a community member may actually be shown. Partially verified records
+# are included because that is where a real directory mostly lives; their
+# unresolved fields travel with them as confirmation notes so the caveat reaches
+# the person rather than being silently dropped.
+SERVABLE_STATUSES: frozenset[VerificationStatus] = frozenset(
+    {VerificationStatus.VERIFIED, VerificationStatus.PARTIALLY_VERIFIED}
+)
 
 
 @dataclass(frozen=True)
@@ -191,7 +199,7 @@ class ResourceRetriever:
 
     def _passes_policy(self, resource: Resource, *, as_of: date | None) -> bool:
         """Withhold anything unverified or overdue for re-verification."""
-        if self._require_verified and not resource.is_verified:
+        if self._require_verified and resource.verification_status not in SERVABLE_STATUSES:
             return False
         return not resource.is_stale(max_age_days=self._max_resource_age_days, as_of=as_of)
 

@@ -50,7 +50,16 @@ class ServiceScope(StrEnum):
 
 
 class VerificationStatus(StrEnum):
+    """How much of a record a human has actually confirmed.
+
+    ``PARTIALLY_VERIFIED`` is its own status rather than a flavour of
+    ``NEEDS_REVIEW``: real directories mostly live here — an address and phone
+    confirmed, hours and eligibility still open — and collapsing that into
+    "unverified" would withhold almost everything useful.
+    """
+
     VERIFIED = "verified"
+    PARTIALLY_VERIFIED = "partially_verified"
     NEEDS_REVIEW = "needs_review"
     UNVERIFIED = "unverified"
 
@@ -127,7 +136,18 @@ class Resource(BaseModel):
     website: str | None = Field(default=None, max_length=500)
 
     source: str = Field(min_length=1, max_length=200, description="Where this record came from.")
-    last_verified: date = Field(description="When a human last confirmed these details.")
+    last_verified: date | None = Field(
+        default=None,
+        description=(
+            "When a human last confirmed these details, if known. None means the "
+            "date was not recorded — the verification status still applies."
+        ),
+    )
+    confirmation_notes: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Caveats a human flagged, e.g. which fields still need confirming.",
+    )
     verification_status: VerificationStatus = VerificationStatus.VERIFIED
 
     @field_validator("services", "languages", "accessibility", mode="before")
@@ -147,8 +167,8 @@ class Resource(BaseModel):
 
     @field_validator("last_verified")
     @classmethod
-    def _reject_future_dates(cls, value: date) -> date:
-        if value > date.today():
+    def _reject_future_dates(cls, value: date | None) -> date | None:
+        if value is not None and value > date.today():
             raise ValueError("last_verified cannot be in the future")
         return value
 
@@ -156,9 +176,19 @@ class Resource(BaseModel):
     def is_verified(self) -> bool:
         return self.verification_status is VerificationStatus.VERIFIED
 
-    def age_in_days(self, *, as_of: date | None = None) -> int:
+    def age_in_days(self, *, as_of: date | None = None) -> int | None:
+        """Days since the last human check, or None when no date was recorded."""
+        if self.last_verified is None:
+            return None
         return ((as_of or date.today()) - self.last_verified).days
 
     def is_stale(self, *, max_age_days: int, as_of: date | None = None) -> bool:
-        """True when the record is older than the freshness window."""
-        return self.age_in_days(as_of=as_of) > max_age_days
+        """True when the record is older than the freshness window.
+
+        A record with no date is not called stale. Freshness cannot be judged
+        from a date that does not exist, and the verification status already
+        says what is known about the record — treating "undated" as "expired"
+        would withhold every resource whose reviewer simply did not log a day.
+        """
+        age = self.age_in_days(as_of=as_of)
+        return age is not None and age > max_age_days
