@@ -11,6 +11,9 @@ tests/
 .env
 .env.*
 !.env.example
+
+# NOT excluded: app/data/private/ — the real resource dataset has to be in the
+# image. Production will not start without it.
 *.pem
 *.key
 service-account*.json

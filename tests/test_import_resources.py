@@ -158,8 +158,8 @@ def test_an_unmappable_row_falls_back_and_is_reported() -> None:
     [
         ("Verified", VerificationStatus.VERIFIED),
         ("Partially Verified", VerificationStatus.PARTIALLY_VERIFIED),
-        ("Needs Verification", VerificationStatus.UNVERIFIED),
-        ("  needs   verification ", VerificationStatus.UNVERIFIED),
+        ("Needs Verification", VerificationStatus.NEEDS_VERIFICATION),
+        ("  needs   verification ", VerificationStatus.NEEDS_VERIFICATION),
     ],
 )
 def test_status_is_mapped_faithfully(raw: str, expected: VerificationStatus) -> None:
@@ -167,7 +167,8 @@ def test_status_is_mapped_faithfully(raw: str, expected: VerificationStatus) -> 
 
 
 def test_an_unrecognised_status_is_treated_as_unverified() -> None:
-    """Failing closed is the only safe default for a verification field."""
+    """Failing closed: an unreadable status is not a known-unverified one, and
+    UNVERIFIED is deliberately absent from the servable set."""
     assert map_status("something new") == VerificationStatus.UNVERIFIED
     assert map_status("") == VerificationStatus.UNVERIFIED
 
@@ -239,16 +240,29 @@ def test_caveats_are_preserved_not_dropped() -> None:
     assert resource.verification_status is VerificationStatus.PARTIALLY_VERIFIED
 
 
-def test_placeholder_text_is_not_treated_as_content() -> None:
+def test_placeholder_text_is_kept_on_descriptive_fields() -> None:
+    """ "Needs confirmation by location" is information, not noise.
+
+    Dropping it would leave a member to assume the field was fine. It is kept
+    on scalar descriptive fields and still filtered out of list fields, where it
+    would become a bogus entry.
+    """
     report = ImportReport()
     resource = convert_row(
-        row(**{"Eligibility Requirements": "Needs confirmation", "Languages Spoken": "Unknown"}),
+        row(
+            **{
+                "Eligibility Requirements": "Needs confirmation by location",
+                "ADA Accessible": "Needs confirmation",
+                "Languages Spoken": "Unknown",
+            }
+        ),
         1,
         report,
     )
 
     assert resource is not None
-    assert resource.eligibility is None
+    assert resource.eligibility == "Needs confirmation by location"
+    assert resource.ada_access == "Needs confirmation"
     assert resource.languages == []
 
 

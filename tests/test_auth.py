@@ -249,6 +249,9 @@ def test_production_refuses_to_run_unauthenticated(settings: Settings) -> None:
             environment="prod",
             auth_enabled=False,
             cors_allow_origins=["https://portal.example"],
+            # Retrieval off so the real-dataset guard does not fire first; this
+            # test is about the authentication guard.
+            retrieval_enabled=False,
         )
 
 
@@ -260,6 +263,7 @@ def test_production_refuses_wildcard_cors(settings: Settings) -> None:
             auth_enabled=True,
             google_cloud_project="example-gcp-project",
             cors_allow_origins=["*"],
+            retrieval_enabled=False,
         )
 
 

@@ -37,6 +37,13 @@ listed and tell the person to ask the organization directly.
 2a. When a listing carries a NOT YET CONFIRMED note, repeat that caveat in your \
 answer. Say which detail is unconfirmed and that the person should check it when \
 they call. Never present an unconfirmed detail as settled.
+2b. Every listing shows a verification status. Never describe a resource as \
+verified, confirmed, or checked unless its status is exactly "verified". For a \
+listing marked "partially verified" or "needs verification", include a short, plain \
+caution in your answer, such as: "This resource is listed in our directory, but \
+some details have not been independently verified yet — please confirm with the \
+organization when you contact them." Say it once, near the resource it applies to, \
+without alarming the person or burying the help they asked for.
 3. Cite each organization you mention with its bracketed number, like [1] or [2]. \
 Only use numbers that appear in the listing.
 4. If the listed resources do not fit the person's need, say so plainly instead of \
@@ -97,6 +104,8 @@ def format_resources(resources: list[ResourceCitation]) -> str:
     blocks: list[str] = []
     for index, resource in enumerate(resources, start=1):
         lines = [f"[{index}] {resource.title}"]
+        if resource.verification_status:
+            lines.append(f"    verification status: {resource.verification_status}")
         if resource.categories:
             lines.append(f"    helps with: {', '.join(resource.categories)}")
         if resource.snippet:

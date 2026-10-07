@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass
 
 from app.core.config import EmbeddingProvider, Settings
+from app.domain.resource import VerificationStatus
 from app.services.embeddings.base import EmbeddingService
 from app.services.embeddings.factory import build_embedding_service
 from app.services.ingestion.loader import load_resources_from_file
@@ -38,6 +39,17 @@ DEFAULT_MIN_SCORE: dict[EmbeddingProvider, float] = {
     EmbeddingProvider.HASHING: 0.10,
     EmbeddingProvider.VERTEX: 0.57,
 }
+
+
+def resolve_servable_statuses(settings: Settings) -> frozenset[VerificationStatus]:
+    """Parse the configured statuses, ignoring any name we do not recognise."""
+    statuses = set()
+    for raw in settings.retrieval_servable_statuses:
+        try:
+            statuses.add(VerificationStatus(raw.strip().lower()))
+        except ValueError:
+            logger.warning("Ignoring unknown verification status in config: %r", raw)
+    return frozenset(statuses)
 
 
 def resolve_min_score(settings: Settings) -> float:
@@ -77,6 +89,9 @@ def build_retrieval_stack(settings: Settings, store: VectorStore | None = None) 
             min_score=resolve_min_score(settings),
             location_boost=settings.retrieval_location_boost,
             category_boost=settings.retrieval_category_boost,
+            verified_boost=settings.retrieval_verified_boost,
+            partially_verified_boost=settings.retrieval_partially_verified_boost,
+            servable_statuses=resolve_servable_statuses(settings),
             candidate_multiplier=settings.retrieval_candidate_multiplier,
             max_resource_age_days=settings.retrieval_max_resource_age_days,
             require_verified=settings.retrieval_require_verified,

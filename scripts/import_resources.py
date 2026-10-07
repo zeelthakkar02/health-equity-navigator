@@ -50,8 +50,8 @@ from app.domain.resource import (
 _STATUS_MAP = {
     "verified": VerificationStatus.VERIFIED,
     "partially verified": VerificationStatus.PARTIALLY_VERIFIED,
-    "needs verification": VerificationStatus.UNVERIFIED,
-    "unverified": VerificationStatus.UNVERIFIED,
+    "needs verification": VerificationStatus.NEEDS_VERIFICATION,
+    "unverified": VerificationStatus.NEEDS_VERIFICATION,
     "needs review": VerificationStatus.NEEDS_REVIEW,
 }
 
@@ -236,8 +236,25 @@ class ImportReport:
     undated: int = 0
 
 
+def _raw(value: str | None) -> str | None:
+    """Trim only. Keeps the source's wording, including "needs confirmation".
+
+    For a descriptive field that is honest information, not noise: "ADA access:
+    needs confirmation by location" tells a member to ask, which is strictly
+    better than omitting the field and leaving them to assume.
+    """
+    if value is None:
+        return None
+    text = " ".join(value.split())
+    return text or None
+
+
 def _clean(value: str | None) -> str | None:
-    """Trim, and drop the export's placeholders for 'we do not know'."""
+    """Trim, and drop the export's placeholders for 'we do not know'.
+
+    Used for list fields and for the description, where a placeholder would
+    become a bogus list item or pad the embedding text with nothing.
+    """
     if value is None:
         return None
     text = " ".join(value.split())
@@ -343,21 +360,12 @@ def convert_row(row: dict[str, str], index: int, report: ImportReport) -> Resour
     if used_fallback:
         report.fallback_rows.append(name)
 
-    accessibility = []
-    if ada := _clean(row.get("ADA Accessible")):
-        accessibility.append(f"ADA: {ada}")
-    if transit := _clean(row.get("Public Transit Access")):
-        accessibility.append(f"Transit: {transit}")
-
-    application = _clean(row.get("Application Required"))
-    eligibility_parts = [
-        part
-        for part in (
-            _clean(row.get("Eligibility Requirements")),
-            f"Application required: {application}" if application else None,
-        )
-        if part
-    ]
+    # ADA and transit are kept as their own fields rather than flattened into a
+    # generic list, so "needs confirmation by location" stays attached to the
+    # thing it qualifies.
+    ada = _raw(row.get("ADA Accessible"))
+    transit = _raw(row.get("Public Transit Access"))
+    application = _raw(row.get("Application Required"))
 
     review_date = parse_review_date(row.get("Key Information Verified", ""))
     if review_date is None:
@@ -373,12 +381,20 @@ def convert_row(row: dict[str, str], index: int, report: ImportReport) -> Resour
                 "services": _split_list(row.get("Services Offered"))[:12],
                 "service_area": build_service_area(row).model_dump(),
                 "address": _clean(row.get("Address")),
-                "eligibility": "; ".join(eligibility_parts)[:1000] or None,
+                "eligibility": (_raw(row.get("Eligibility Requirements")) or "")[:1000] or None,
                 "languages": _split_list(row.get("Languages Spoken"))[:15],
-                "accessibility": accessibility,
-                "cost": (_clean(row.get("Payment Options / Cost")) or "")[:200] or None,
-                "phone": (_clean(row.get("Phone Number")) or "")[:40] or None,
-                "website": (_clean(row.get("Website")) or "")[:500] or None,
+                "accessibility": [],
+                "ada_access": (ada or "")[:500] or None,
+                "transit_access": (transit or "")[:500] or None,
+                "application_required": (application or "")[:500] or None,
+                "source_category": (_clean(row.get("Category")) or "")[:300] or None,
+                "search_tags": _split_list(row.get("Search Tags"))[:20],
+                "service_area_note": (_clean(row.get("Service Area")) or "")[:500] or None,
+                "verification_note": (_clean(row.get("Key Information Verified")) or "")[:1000]
+                or None,
+                "cost": (_raw(row.get("Payment Options / Cost")) or "")[:200] or None,
+                "phone": (_raw(row.get("Phone Number")) or "")[:40] or None,
+                "website": (_raw(row.get("Website")) or "")[:500] or None,
                 "source": "cents-resource-database",
                 "last_verified": review_date,
                 "verification_status": map_status(row.get("Verification Status", "")).value,
@@ -413,9 +429,10 @@ def main() -> int:
         help="Where to write the resource JSON (gitignored by default).",
     )
     parser.add_argument(
-        "--include-unverified",
+        "--verified-only",
         action="store_true",
-        help="Write unverified rows too. They are still withheld at retrieval time.",
+        help="Write only fully verified rows. Off by default: every row is kept and "
+        "its verification status travels with it.",
     )
     args = parser.parse_args()
 
@@ -438,17 +455,12 @@ def main() -> int:
     ]
     report.converted = len(resources)
 
-    if not args.include_unverified:
-        kept = [
-            r
-            for r in resources
-            if r.verification_status
-            in {VerificationStatus.VERIFIED, VerificationStatus.PARTIALLY_VERIFIED}
-        ]
-        withheld = len(resources) - len(kept)
+    if args.verified_only:
+        kept = [r for r in resources if r.verification_status is VerificationStatus.VERIFIED]
+        excluded = len(resources) - len(kept)
         resources = kept
     else:
-        withheld = 0
+        excluded = 0
 
     destination = Path(args.out)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -462,8 +474,9 @@ def main() -> int:
                     "contains_patient_data": False,
                     "notice": (
                         "REAL ORGANIZATION DATA. Verification status is copied from the "
-                        "export and never upgraded. Records marked unverified are "
-                        "withheld by the retriever."
+                        "export and never upgraded. Every status is searchable; the "
+                        "status and any unresolved-field notes travel with each record "
+                        "so uncertainty is communicated rather than hidden."
                     ),
                     "record_count": len(resources),
                 },
@@ -478,7 +491,7 @@ def main() -> int:
 
     print(f"  rows read            : {report.total_rows}")
     print(f"  converted            : {report.converted}")
-    print(f"  withheld (unverified): {withheld}")
+    print(f"  excluded by --verified-only: {excluded}")
     print(f"  written              : {len(resources)} -> {destination}")
     print(f"  no review date       : {report.undated}")
     print("\n  verification status of converted rows:")

@@ -53,6 +53,10 @@ class EmbeddingProvider(StrEnum):
 
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+_DEFAULT_SAMPLE_DATA_PATH = _PACKAGE_ROOT / "data" / "sample_resources.json"
+# Where an imported real dataset is expected to live. Gitignored, but included
+# in the Cloud Build upload so it reaches the image.
+PRIVATE_DATA_PATH = _PACKAGE_ROOT / "data" / "private" / "cents_resources.json"
 
 
 class Settings(BaseSettings):
@@ -111,7 +115,7 @@ class Settings(BaseSettings):
     embedding_max_concurrency: int = Field(default=4, gt=0, le=32)
 
     # --- Retrieval ---
-    resource_data_path: Path = _PACKAGE_ROOT / "data" / "sample_resources.json"
+    resource_data_path: Path = _DEFAULT_SAMPLE_DATA_PATH
     eval_queries_path: Path = _PACKAGE_ROOT / "data" / "eval_queries.json"
     retrieval_top_k: int = Field(default=5, gt=0, le=50)
     # Gate on semantic similarity alone, before any boost is applied. Score
@@ -125,6 +129,17 @@ class Settings(BaseSettings):
     # Records verified longer ago than this are withheld from results.
     retrieval_max_resource_age_days: int = Field(default=548, gt=0)
     retrieval_require_verified: bool = True
+    # Statuses a member may be shown. All three statuses a real directory uses
+    # are servable: withholding "needs verification" entirely hid the only
+    # resources that answered whole classes of question. A status we could not
+    # read stays out — unreadable is not the same as known-unverified.
+    retrieval_servable_statuses: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["verified", "partially_verified", "needs_verification"]
+    )
+    # Verification breaks ties; it does not decide relevance. Kept small on
+    # purpose so a clearly better "needs verification" match still wins.
+    retrieval_verified_boost: float = Field(default=0.06, ge=0.0, le=0.5)
+    retrieval_partially_verified_boost: float = Field(default=0.03, ge=0.0, le=0.5)
     # Turning this off makes the Navigator answer without retrieval, which is
     # only useful for isolating the generation path in development.
     retrieval_enabled: bool = True
@@ -164,6 +179,19 @@ class Settings(BaseSettings):
     # --- Evaluation ---
     eval_navigator_path: Path = _PACKAGE_ROOT / "data" / "eval_navigator.json"
     eval_decoy_resources_path: Path = _PACKAGE_ROOT / "data" / "eval_decoy_resources.json"
+
+    @field_validator("retrieval_servable_statuses", mode="before")
+    @classmethod
+    def _split_statuses(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+        return [item.strip().lower() for item in text.split(",") if item.strip()]
 
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
@@ -208,6 +236,31 @@ class Settings(BaseSettings):
         if self.environment is Environment.PROD and "*" in self.cors_allow_origins:
             raise ValueError(
                 "CORS_ALLOW_ORIGINS must name explicit origins in production, not '*'."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_real_resource_data_in_production(self) -> Settings:
+        """Production must not fall back to the synthetic sample set.
+
+        The bundled sample data exists for tests and offline development. Serving
+        it to a member would mean handing out invented organizations and invented
+        phone numbers, so production has to point somewhere else and that file
+        has to exist. Failing at startup is the only acceptable outcome: a
+        service that quietly answers from synthetic data looks healthy.
+        """
+        if self.environment is not Environment.PROD or not self.retrieval_enabled:
+            return self
+
+        if self.resource_data_path == _DEFAULT_SAMPLE_DATA_PATH:
+            raise ValueError(
+                "RESOURCE_DATA_PATH still points at the bundled synthetic sample "
+                "data. Production must be given the real resource dataset."
+            )
+        if not Path(self.resource_data_path).is_file():
+            raise ValueError(
+                f"RESOURCE_DATA_PATH does not exist: {self.resource_data_path}. "
+                "Production will not start without the real resource dataset."
             )
         return self
 

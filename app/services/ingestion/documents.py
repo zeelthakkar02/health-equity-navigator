@@ -22,6 +22,11 @@ def build_embedding_text(resource: Resource) -> str:
     ]
     if resource.services:
         lines.append(f"Specific help: {', '.join(resource.services)}")
+    if resource.source_category:
+        lines.append(f"Listed under: {resource.source_category}")
+    if resource.search_tags:
+        # The source's own keywords are what someone would search for.
+        lines.append(f"Also known for: {', '.join(resource.search_tags)}")
     lines.append(f"Description: {resource.description}")
     lines.append(f"Service area: {resource.service_area.describe()}")
     if resource.eligibility:
@@ -30,8 +35,15 @@ def build_embedding_text(resource: Resource) -> str:
         lines.append(f"Languages spoken: {', '.join(resource.languages)}")
     if resource.accessibility:
         lines.append(f"Accessibility: {', '.join(resource.accessibility)}")
+    if resource.ada_access:
+        lines.append(f"ADA access: {resource.ada_access}")
+    if resource.transit_access:
+        lines.append(f"Public transit: {resource.transit_access}")
+    if resource.application_required:
+        lines.append(f"Application required: {resource.application_required}")
     if resource.cost:
         lines.append(f"Cost: {resource.cost}")
+    lines.append(f"Verification status: {resource.verification_status.label}")
     if resource.confirmation_notes:
         # Carried into the prompt so the model can pass the caveat on rather
         # than presenting an unconfirmed detail as settled fact.

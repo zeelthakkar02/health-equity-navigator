@@ -301,11 +301,17 @@ async def test_the_category_boost_is_recorded_on_the_result(stack) -> None:
     assert all(result.score > result.semantic_score for result in boosted)
 
 
-async def test_a_query_stating_no_need_is_ranked_by_similarity_alone(stack) -> None:
+async def test_a_query_stating_no_need_gets_no_category_boost(stack) -> None:
+    """Verification still shifts the score; the stated-need boost must not."""
     results = await stack.retriever.retrieve("help for my family", top_k=5, as_of=TODAY)
 
+    assert results
     assert all(result.category_match == 0.0 for result in results)
-    assert all(result.score == result.semantic_score for result in results)
+    # The sample data is all verified, so each score is its semantic score plus
+    # exactly the verified tie-breaker — nothing from a need that was not stated.
+    assert all(
+        result.score == pytest.approx(result.semantic_score + 0.06, abs=1e-6) for result in results
+    )
 
 
 async def test_the_boost_reorders_but_never_admits(stack) -> None:

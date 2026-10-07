@@ -52,6 +52,24 @@ dist/
 # one from a developer's laptop must never ship inside an image.
 .cache/
 
+# ---------------------------------------------------------------------------
+# DELIBERATELY NOT EXCLUDED: app/data/private/
+#
+# The real resource dataset is gitignored, so it never reaches the public
+# repository — but it MUST reach Cloud Build, because the Dockerfile copies
+# app/ into the image and production refuses to start without it.
+#
+# Do not "tidy up" by mirroring .gitignore here. Adding app/data/private/ to
+# this file would make `gcloud run deploy --source .` build an image with no
+# real data, and the service would then fail to start. That failure is by
+# design (see _require_real_resource_data_in_production) but the cause would
+# be three files away from the symptom.
+#
+# The data is organization-level public resource information: no user or
+# patient data. Verify with:
+#   gcloud meta list-files-for-upload | grep app/data/private
+# ---------------------------------------------------------------------------
+
 # Tooling caches
 .pytest_cache/
 .ruff_cache/

@@ -41,12 +41,17 @@ _COUNTY_MATCH = 0.8
 _STATE_MATCH = 0.6
 _BOUNDLESS_MATCH = 0.5
 
-# Statuses a community member may actually be shown. Partially verified records
-# are included because that is where a real directory mostly lives; their
-# unresolved fields travel with them as confirmation notes so the caveat reaches
-# the person rather than being silently dropped.
-SERVABLE_STATUSES: frozenset[VerificationStatus] = frozenset(
-    {VerificationStatus.VERIFIED, VerificationStatus.PARTIALLY_VERIFIED}
+# Default statuses a community member may be shown. All three statuses a real
+# directory uses are included: withholding "needs verification" hid the only
+# resources that answered whole classes of question, and the uncertainty is
+# better communicated than concealed. Every record carries its status and its
+# unresolved-field notes with it.
+DEFAULT_SERVABLE_STATUSES: frozenset[VerificationStatus] = frozenset(
+    {
+        VerificationStatus.VERIFIED,
+        VerificationStatus.PARTIALLY_VERIFIED,
+        VerificationStatus.NEEDS_VERIFICATION,
+    }
 )
 
 
@@ -86,6 +91,9 @@ class ResourceRetriever:
         min_score: float = 0.05,
         location_boost: float = 0.25,
         category_boost: float = 0.12,
+        verified_boost: float = 0.06,
+        partially_verified_boost: float = 0.03,
+        servable_statuses: frozenset[VerificationStatus] | None = None,
         candidate_multiplier: int = 4,
         max_resource_age_days: int = 548,
         require_verified: bool = True,
@@ -96,6 +104,13 @@ class ResourceRetriever:
         self._min_score = min_score
         self._location_boost = location_boost
         self._category_boost = category_boost
+        self._verification_boost = {
+            VerificationStatus.VERIFIED: verified_boost,
+            VerificationStatus.PARTIALLY_VERIFIED: partially_verified_boost,
+        }
+        self._servable_statuses = (
+            servable_statuses if servable_statuses is not None else DEFAULT_SERVABLE_STATUSES
+        )
         self._candidate_multiplier = candidate_multiplier
         self._max_resource_age_days = max_resource_age_days
         self._require_verified = require_verified
@@ -168,10 +183,12 @@ class ResourceRetriever:
                 if stated_needs and stated_needs.intersection(resource.service_categories)
                 else 0.0
             )
+            verification_boost = self._verification_boost.get(resource.verification_status, 0.0)
             final_score = (
                 hit.score
                 + self._location_boost * location_match
                 + self._category_boost * category_match
+                + verification_boost
             )
             scored.append(
                 _ScoredResource(
@@ -179,6 +196,7 @@ class ResourceRetriever:
                     semantic_score=hit.score,
                     location_match=location_match,
                     category_match=category_match,
+                    verification_boost=verification_boost,
                     resource=resource,
                 )
             )
@@ -199,7 +217,7 @@ class ResourceRetriever:
 
     def _passes_policy(self, resource: Resource, *, as_of: date | None) -> bool:
         """Withhold anything unverified or overdue for re-verification."""
-        if self._require_verified and resource.verification_status not in SERVABLE_STATUSES:
+        if self._require_verified and resource.verification_status not in self._servable_statuses:
             return False
         return not resource.is_stale(max_age_days=self._max_resource_age_days, as_of=as_of)
 
@@ -212,6 +230,7 @@ class _ScoredResource:
     semantic_score: float
     location_match: float
     category_match: float
+    verification_boost: float
     resource: Resource
 
 

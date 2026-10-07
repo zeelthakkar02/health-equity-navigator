@@ -60,8 +60,19 @@ class VerificationStatus(StrEnum):
 
     VERIFIED = "verified"
     PARTIALLY_VERIFIED = "partially_verified"
+    NEEDS_VERIFICATION = "needs_verification"
     NEEDS_REVIEW = "needs_review"
+    # Reserved for a status we could not read. Not servable: an unreadable
+    # verification field is not the same as a known-unverified one.
     UNVERIFIED = "unverified"
+
+    @property
+    def label(self) -> str:
+        return self.value.replace("_", " ")
+
+    @property
+    def is_fully_verified(self) -> bool:
+        return self is VerificationStatus.VERIFIED
 
 
 class ServiceArea(BaseModel):
@@ -148,9 +159,39 @@ class Resource(BaseModel):
         max_length=2000,
         description="Caveats a human flagged, e.g. which fields still need confirming.",
     )
+    verification_note: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="What a reviewer said they checked, in their own words.",
+    )
+
+    # --- fields kept verbatim from a source directory ---
+    # These exist so an import loses as little as possible. Each is optional:
+    # a source without them is still a valid resource.
+    source_category: str | None = Field(
+        default=None,
+        max_length=300,
+        description="The source's own category text, before mapping to ServiceCategory.",
+    )
+    search_tags: list[str] = Field(
+        default_factory=list,
+        description="Keywords from the source, used to improve retrieval.",
+    )
+    service_area_note: str | None = Field(
+        default=None, max_length=500, description="The source's service-area text, verbatim."
+    )
+    ada_access: str | None = Field(
+        default=None, max_length=500, description="ADA accessibility as the source stated it."
+    )
+    transit_access: str | None = Field(
+        default=None, max_length=500, description="Public transit access as the source stated it."
+    )
+    application_required: str | None = Field(
+        default=None, max_length=500, description="Whether an application is needed."
+    )
     verification_status: VerificationStatus = VerificationStatus.VERIFIED
 
-    @field_validator("services", "languages", "accessibility", mode="before")
+    @field_validator("services", "languages", "accessibility", "search_tags", mode="before")
     @classmethod
     def _clean_list(cls, value: object) -> object:
         if isinstance(value, list):
